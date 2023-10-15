@@ -90,8 +90,11 @@ def handle_refuse_decision(update: Update, context: CallbackContext):
 def handle_cancel_decision(update: Update, context: CallbackContext):
     """Заканчивает диалог"""
     user = update.effective_user
-    message_text = 'До свидания, %s!' % user.first_name
-    update.message.reply_text(message_text,
+    message_text = """\
+    До свидания, %s! 
+    Введите /start для начала новой викторины.
+    """ % user.first_name
+    update.message.reply_text(dedent(message_text),
                               reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
