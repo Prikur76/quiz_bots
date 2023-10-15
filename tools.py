@@ -1,10 +1,20 @@
+import json
 import os
 import re
-import redis
 from functools import wraps
 
 
-base_dir = os.path.dirname(__file__)
+def send_action(action):
+    """Отправляет действие в момент выполнения функции"""
+    def decorator(func):
+        @wraps(func)
+        def command_func(update, context, *args, **kwargs):
+            context.bot.send_chat_action(
+                chat_id=update.effective_message.chat_id,
+                action=action)
+            return func(update, context, *args, **kwargs)
+        return command_func
+    return decorator
 
 
 def read_quiz_questions(source_path, file_encoding='KOI8-R'):
@@ -16,52 +26,31 @@ def read_quiz_questions(source_path, file_encoding='KOI8-R'):
         with open(filepath, 'r', encoding=file_encoding) as f:
             text = f.read().split('\n\n')
             content = [' '.join(i.strip().splitlines()[1:])
-                       for i in text if i.strip().startswith(('Вопрос', 'Ответ'))]
+                       for i in text
+                       if i.strip().startswith(('Вопрос', 'Ответ'))]
             questions.extend(content)
-    quiz_questions = dict(
-        enumerate(
-            [
-                {
-                    'question': questions[i],
-                    'answer': re.sub(
-                        r'[\(\[].*?[\)\]]','',
-                        questions[i+1]).strip()
-                }
-                for i in range(0, len(questions), 2)
-            ]
-        )
-    )
-    return quiz_questions
+    return questions
 
 
-def get_quiz_answer(quiz_questions, question):
-    """Возвращает правильный ответ."""
-    return next((i for i in quiz_questions.values() if i['question'] == question), None)['answer']
+def clean_answer(answer):
+    """Удаляет лишние символы и содержимое в ответе"""
+    pattern_1 = r'[\(\[].*?[\)\]]'
+    pattern_2 = r'\.$'
+    pattern_3 = r'\"'
+    return re.sub(pattern_1, '',
+                  re.sub(pattern_2, '',
+                         re.sub(pattern_3, '',
+                                answer)
+                         )
+                  ).strip()
 
 
-def send_action(action):
-    """Sends `action` while processing func command."""
-
-    def decorator(func):
-        @wraps(func)
-        def command_func(update, context, *args, **kwargs):
-            context.bot.send_chat_action(chat_id=update.effective_message.chat_id, action=action)
-            return func(update, context, *args, **kwargs)
-
-        return command_func
-    return decorator
-
-
-#
-# content = read_quiz_questions('quiz_questions')
-# print(content)
-# question = 'Это "недостающее звено" в прошлом веке обнаружил на острове Ява голландский врач, тем самым лишний раз доказывая правильность суждения одного англичанина. Позднее это "звено" было обнаружено в Африке, Азии, Европе. Как звали англичанина.'
-# answer = get_quiz_answer(content, question)
-# print(answer)
-
-# pool = redis.ConnectionPool(host='localhost', port=6379, db=0, decode_responses=True)
-# redis = redis.Redis(connection_pool=pool)
-#
-# redis.set('user_123', 'What the Fuck, Dude!')
-# value = redis.get('user_123')
-# print(value)
+def fetch_answer_from_db(user_id, db_connection):
+    """Возвращает правильный ответ из базы данных по user_id"""
+    question_number = json.loads(
+        db_connection.hget('users', f'user_{user_id}')
+    )['last_question']
+    correct_answer = json.loads(
+        db_connection.hget('quiz', question_number)
+    )['answer']
+    return correct_answer
