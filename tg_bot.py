@@ -60,12 +60,16 @@ def handle_solution_attempt(update: Update, context: CallbackContext):
     user_message = update.message.text.strip().lower()
     quiz_answer = fetch_answer_from_db(user_id, db_connection)
     if user_message == quiz_answer.lower():
-        message_text = ('Правильный ответ! '
-                        'Для продолжения нажмите "Новый вопрос"')
-        update.message.reply_text(message_text)
+        message_text = '''\
+        Правильный ответ!
+        Для продолжения нажмите "Новый вопрос"'''
+        update.message.reply_text(dedent(message_text))
         return CHOOSING
 
-    update.message.reply_text('Неверный ответ! Попробуешь ещё раз?')
+    message_text = '''\
+    Неверный ответ!
+    Попробуешь ещё раз?'''
+    update.message.reply_text(dedent(message_text))
     return ATTEMPTING
 
 
@@ -76,7 +80,8 @@ def handle_refuse_decision(update: Update, context: CallbackContext):
     message_text = """\
     Правильный ответ:
     %s.
-    Нажмите 'Новый вопрос' для продолжения или введите /cancel для отмены.
+    'Новый вопрос' - продолжить викторину,
+    /cancel  - отменить викторину
     """ % quiz_answer
     update.message.reply_text(dedent(message_text))
     return CHOOSING
