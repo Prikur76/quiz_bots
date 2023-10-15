@@ -2,61 +2,93 @@ import json
 import logging
 import os
 import random
-import redis
 from textwrap import dedent
 
+import redis
 from dotenv import load_dotenv
-from telegram import Update, Bot, ReplyKeyboardMarkup, ChatAction
-from telegram.ext import Updater
+from telegram import ChatAction
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import Update, Bot
 from telegram.ext import CallbackContext
-from telegram.ext import Filters
 from telegram.ext import CommandHandler
-from telegram.ext import MessageHandler
-
 from telegram.ext import ConversationHandler
-
+from telegram.ext import Filters
+from telegram.ext import MessageHandler
+from telegram.ext import Updater
 
 from logshandler import TelegramLogsHandler
-from tools import read_quiz_questions, send_action, get_quiz_answer
-
+from tools import send_action, fetch_answer_from_db
 
 logger = logging.getLogger(__name__)
+
+CHOOSING, ATTEMPTING = range(2)
 
 
 def start(update: Update, context: CallbackContext) -> None:
     """Отправляет привественное сообщение при команде /start"""
     user = update.effective_user
     keyboard = [['Новый вопрос', 'Сдаться']]
-    keyboard_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    keyboard_markup = ReplyKeyboardMarkup(keyboard,
+                                          resize_keyboard=True)
     start_message = dedent(
         '''\
         Привет, %s!
         Я бот для викторин. Нажмите "Новый вопрос" для начала викторины.
         /cancel - для отмены.
         ''' % user.first_name)
-    update.message.reply_text(start_message, reply_markup=keyboard_markup)
+    update.message.reply_text(start_message,
+                              reply_markup=keyboard_markup)
+    return CHOOSING
 
 
 @send_action(ChatAction.TYPING)
-def get_new_question(update: Update, context: CallbackContext):
+def handle_new_question_request(update: Update, context: CallbackContext):
     """Обработка нового вопроса"""
-    message_text = update.message.text
-    if message_text == 'Новый вопрос':
-        user = update.effective_user
-        question_number = random.choice(read_quiz_questions('quiz_questions/'))
-        redis.set(
-            f'user_{user.id}',
-            json.dumps({'last_question': question_number})
-        )
+    user = update.effective_user
+    question_number = random.choice(db_connection.hkeys('quiz'))
+    question = json.loads(db_connection.hget('quiz', question_number))
+    db_connection.hset('users', f'user_{user.id}',
+                       json.dumps({'last_question': question_number}))
+    update.message.reply_text(question['question'])
+    return ATTEMPTING
 
-        question_number = json.loads(redis.get(f'user_{user.id}'))
-        print(question_number['question'])
-        print(question_number['answer'])
-        update.message.reply_text(quiz_question)
 
-    # quiz_question = question_number['question']
-    # quiz_answer = question_number['answer'].strip().lower()
-    # message_text = update.message.text
+@send_action(ChatAction.TYPING)
+def handle_solution_attempt(update: Update, context: CallbackContext):
+    """Проверяет правильность ответа"""
+    user_id = update.message.from_user.id
+    user_message = update.message.text.strip().lower()
+    quiz_answer = fetch_answer_from_db(user_id, db_connection)
+    if user_message == quiz_answer.lower():
+        message_text = ('Правильный ответ! '
+                        'Для продолжения нажмите "Новый вопрос"')
+        update.message.reply_text(message_text)
+        return CHOOSING
+
+    update.message.reply_text('Неверный ответ! Попробуешь ещё раз?')
+    return ATTEMPTING
+
+
+def handle_refuse_decision(update: Update, context: CallbackContext):
+    """Отменяет вопрос"""
+    user_id = update.message.from_user.id
+    quiz_answer = fetch_answer_from_db(user_id, db_connection)
+    message_text = """\
+    Правильный ответ:
+    %s.
+    Нажмите 'Новый вопрос' для продолжения или введите /cancel для отмены.
+    """ % quiz_answer
+    update.message.reply_text(dedent(message_text))
+    return CHOOSING
+
+
+def handle_cancel_decision(update: Update, context: CallbackContext):
+    """Заканчивает диалог"""
+    user = update.effective_user
+    message_text = 'До свидания, %s!' % user.first_name
+    update.message.reply_text(message_text,
+                              reply_markup=ReplyKeyboardRemove())
+    return ConversationHandler.END
 
 
 if __name__ == '__main__':
@@ -86,21 +118,30 @@ if __name__ == '__main__':
         port=os.environ.get('REDIS_PORT'),
         db=0,
         decode_responses=True)
-    redis = redis.Redis(connection_pool=pool)
+    db_connection = redis.Redis(connection_pool=pool)
 
     try:
         updater = Updater(os.environ.get('DF_BOT_TOKEN'))
-        dispatcher = updater.dispatcher
-        dispatcher.add_handler(CommandHandler('start', start))
-        dispatcher.add_handler(
-            MessageHandler(
-                Filters.text & ~Filters.command, get_new_question
-            )
+        dp = updater.dispatcher
+        conversation_handler = ConversationHandler(
+            entry_points=[CommandHandler('start', start)],
+            states={
+                CHOOSING: [
+                    MessageHandler(Filters.regex('^(Новый вопрос)$'),
+                                   handle_new_question_request)
+                ],
+                ATTEMPTING: [
+                    MessageHandler(Filters.regex('^(Сдаться)$'), handle_refuse_decision),
+                    MessageHandler(Filters.text, handle_solution_attempt)
+                ]
+            },
+            fallbacks=[CommandHandler('cancel', handle_cancel_decision)]
         )
+        dp.add_handler(conversation_handler)
 
         updater.start_polling()
         updater.idle()
 
     except Exception as e:
-        logger.debug('Возникла ошибка в DialogFlow tg-боте')
+        logger.debug('Возникла ошибка в tg-боте')
         logger.exception(e)
