@@ -16,10 +16,7 @@
 pip install -r requirements.txt
 ```
 * Для хранения чувствительных данных (токен devman, токен основного бота, токен вспомогательного бота, chat_id пользователя) создайте файл .env 
-с переменными **```DF_BOT_TOKEN, SERVICE_BOT_TOKEN, SERVICE_CHAT_ID, VK_COMMUNITY_TOKEN, REDIS_HOST, REDIS_PORT```**.
-* Для сохранения вопросов и ответов викторины, а также для работы с вопросами пользователей, 
-установите **```Docker```** [по инструкции](https://docs.docker.com/desktop/) в зависимости от используемой ОС.
-* Для установки базы данных Redis воспользуйтесь этой [инструкцией](https://developer.redis.com/create/docker/redis-on-docker/).
+с переменными **```DF_BOT_TOKEN, SERVICE_BOT_TOKEN, SERVICE_CHAT_ID, VK_COMMUNITY_TOKEN, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD```**.
 
 ### Этап 1. Получить все авторизационные ключи
 #### Этап 1.1 Для запуска бота в Телеграме необходимо:
@@ -32,13 +29,18 @@ pip install -r requirements.txt
 2) Создать сервисный ключ в разделе "Управление" на вкладке "Работа с API"
 3) Разрешить отправку сообщений на вкладке "Сообщения".
 
+#### Этап 1.3 Для сохранения вопросов и ответов викторины, а также для работы с вопросами пользователей необходимо:
+1) ВАРИАНТ использования БД на локальном компьютере: установить базу данных Redis с помощью **```Docker```**  [инструкция по Docker Desktop](https://docs.docker.com/desktop/), [инструкция по Redis](https://developer.redis.com/create/docker/redis-on-docker/); 
+2) ВАРИАНТ использования БД на стороннем сервере: завести аккаунт на [**```Redislabs```**](https://redislabs.com/) и создать базу данных, получив адрес, например 
+```redis-13965.f18.us-east-4-9.wc1.cloud.redislabs.com```, его порт, например ```16635```(порт указан прямо в адресе, через двоеточие) и его пароль.
+
 ### Этап 2. Установить переменные окружения
 1) **```DF_BOT_TOKEN```**: токен для основного телеграм-бота (например, **```DF_BOT_TOKEN=95193951:wP3db3301vnrob33BZdb33KwP3db3F1I```**);  
 2) **```SERVICE_BOT_TOKEN```**: токен для сервисного телеграм-бота;
 3) **```SERVICE_CHAT_ID```**: id пользователя телеграм, который будет получать сервисные сообщения;  
 4) **```VK_COMMUNITY_TOKEN```**: токен для бота ВКонтакте, например, **```VK_COMMUNITY_TOKEN=vk1.a.1234567890NKVDJNKSDNVBNKD1234567890-DVJNnvlvDLMERVB1234567890```**;
-5) **```REDIS_HOST```**: хост БД Redis;
-6) **```REDIS_PORT```**: порт БД Redis;
+5) **```REDIS_HOST```**: хост БД Redis, например, **```REDIS_HOST=redis-13965.f18.us-east-4-9.wc1.cloud.redislabs.com```**;
+6) **```REDIS_PORT```**: порт БД Redis, например, **```REDIS_PORT=16635```**; 
 7) **```REDIS_PASSWORD```**: пароль БД Redis.
 
 ### Этап 3. Запуск ботов на локальном компьютере
