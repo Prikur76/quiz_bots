@@ -134,7 +134,6 @@ if __name__ == '__main__':
         port=os.environ.get('REDIS_PORT'),
         username=os.environ.get('REDIS_USERNAME'),
         password=os.environ.get('REDIS_PASSWORD'),
-        db=0,
         decode_responses=True)
     db_connection = redis.Redis(connection_pool=pool)
 
