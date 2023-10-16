@@ -16,7 +16,7 @@
 pip install -r requirements.txt
 ```
 * Для хранения чувствительных данных (токен devman, токен основного бота, токен вспомогательного бота, chat_id пользователя) создайте файл .env 
-с переменными **```DF_BOT_TOKEN, SERVICE_BOT_TOKEN, SERVICE_CHAT_ID, VK_COMMUNITY_TOKEN, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD```**.
+с переменными **```DF_BOT_TOKEN, SERVICE_BOT_TOKEN, SERVICE_CHAT_ID, VK_COMMUNITY_TOKEN, REDIS_HOST, REDIS_PORT, REDIS_USERNAME, REDIS_PASSWORD```**.
 
 ### Этап 1. Получить все авторизационные ключи
 #### Этап 1.1 Для запуска бота в Телеграме необходимо:
@@ -40,8 +40,9 @@ pip install -r requirements.txt
 3) **```SERVICE_CHAT_ID```**: id пользователя телеграм, который будет получать сервисные сообщения;  
 4) **```VK_COMMUNITY_TOKEN```**: токен для бота ВКонтакте, например, **```VK_COMMUNITY_TOKEN=vk1.a.1234567890NKVDJNKSDNVBNKD1234567890-DVJNnvlvDLMERVB1234567890```**;
 5) **```REDIS_HOST```**: хост БД Redis, например, **```REDIS_HOST=redis-13965.f18.us-east-4-9.wc1.cloud.redislabs.com```**;
-6) **```REDIS_PORT```**: порт БД Redis, например, **```REDIS_PORT=16635```**; 
-7) **```REDIS_PASSWORD```**: пароль БД Redis.
+6) **```REDIS_PORT```**: порт БД Redis, например, **```REDIS_PORT=16635```**;
+7) **```REDIS_USERNAME```**: имя пользователя БД Redis, например, **```REDIS_USERNAME=test_user```**;
+8) **```REDIS_PASSWORD```**: пароль БД Redis.
 
 ### Этап 3. Запуск ботов на локальном компьютере
 
