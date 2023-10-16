@@ -47,7 +47,7 @@ def handle_new_question_request(event, vk_api, db_connection):
     user_id = event.user_id
     question_number = random.choice(db_connection.hkeys('quiz'))
     question = json.loads(db_connection.hget('quiz', question_number))
-    db_connection.hset('users', f'user_{user_id}',
+    db_connection.hset('users', f'vk_user_{user_id}',
                        json.dumps({'last_question': question_number}))
     vk_api.messages.send(peer_id=user_id,
                          random_id=get_random_id(),
@@ -58,7 +58,7 @@ def handle_new_question_request(event, vk_api, db_connection):
 def handle_solution_attempt(event, vk_api, db_connection):
     """Проверяет правильность ответа"""
     user_id = event.user_id
-    quiz_answer = fetch_answer_from_db(user_id, db_connection)
+    quiz_answer = fetch_answer_from_db(f'vk_user_{user_id}', db_connection)
     user_message = event.text.strip().lower()
 
     if user_message == quiz_answer.lower():
@@ -81,16 +81,22 @@ def handle_solution_attempt(event, vk_api, db_connection):
 def handle_refuse_decision(event, vk_api, db_connection):
     """Отменяет вопрос"""
     user_id = event.user_id
-    quiz_answer = fetch_answer_from_db(user_id, db_connection)
+    quiz_answer = fetch_answer_from_db(f'vk_user_{user_id}',
+                                       db_connection)
     message_text = """\
     Правильный ответ:
     %s.
     'Новый вопрос' - продолжить викторину,
-    /cancel  - отменить викторину
+    'Выйти'  - отменить викторину
     """ % quiz_answer
+    keyboard = VkKeyboard(one_time=True)
+    keyboard.add_button('Новый вопрос',
+                        color=VkKeyboardColor.POSITIVE)
+    keyboard.add_button('Выйти',
+                        color=VkKeyboardColor.NEGATIVE)
     vk_api.messages.send(peer_id=user_id,
                          random_id=get_random_id(),
-                         keyboard=get_vk_keyboard(),
+                         keyboard=keyboard.get_keyboard(),
                          message=dedent(message_text))
 
 def handle_cancel_decision(event, vk_api):
@@ -132,8 +138,8 @@ def main():
     pool = redis.ConnectionPool(
         host=os.environ.get('REDIS_HOST'),
         port=os.environ.get('REDIS_PORT'),
+        username=os.environ.get('REDIS_USERNAME'),
         password=os.environ.get('REDIS_PASSWORD'),
-        db=0,
         decode_responses=True)
     db_connection = redis.Redis(connection_pool=pool)
 
@@ -159,7 +165,7 @@ def main():
                     handle_refuse_decision(event, vk_api, db_connection)
                     continue
 
-                if event.text == '/cancel':
+                if event.text.strip().lower() == 'выйти':
                     handle_cancel_decision(event, vk_api)
                     continue
 
