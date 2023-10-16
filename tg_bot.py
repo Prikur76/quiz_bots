@@ -21,7 +21,7 @@ from tools import send_action, fetch_answer_from_db
 
 logger = logging.getLogger(__name__)
 
-CHOOSING, ATTEMPTING, FINISHED = range(3)
+CHOOSING, ATTEMPTING = range(2)
 
 
 def start(update: Update, context: CallbackContext) -> None:
@@ -62,7 +62,7 @@ def handle_solution_attempt(update: Update, context: CallbackContext):
     """Проверяет правильность ответа"""
     user_id = update.message.from_user.id
     user_message = update.message.text.strip().lower()
-    quiz_answer = fetch_answer_from_db(f'tg_user_{user.id}', db_connection)
+    quiz_answer = fetch_answer_from_db(f'tg_user_{user_id}', db_connection)
     if user_message == quiz_answer.lower():
         message_text = '''\
         Правильный ответ!
@@ -81,12 +81,12 @@ def handle_solution_attempt(update: Update, context: CallbackContext):
 def handle_refuse_decision(update: Update, context: CallbackContext):
     """Отменяет вопрос"""
     user_id = update.message.from_user.id
-    quiz_answer = fetch_answer_from_db(f'tg_user_{user.id}', db_connection)
+    quiz_answer = fetch_answer_from_db(f'tg_user_{user_id}', db_connection)
     message_text = """\
     Правильный ответ:
     %s.
     'Новый вопрос' - продолжить викторину,
-    'Выйти' - покинуть викторину
+    '/cancel' - покинуть викторину
     """ % quiz_answer
     keyboard = [['Новый вопрос', 'Выйти']]
     keyboard_markup = ReplyKeyboardMarkup(keyboard,
@@ -103,7 +103,8 @@ def handle_cancel_decision(update: Update, context: CallbackContext):
     До свидания, %s! 
     Введите /start для начала новой викторины.
     """ % user.first_name
-    update.message.reply_text(dedent(message_text))
+    update.message.reply_text(dedent(message_text),
+                              reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 
@@ -151,9 +152,6 @@ if __name__ == '__main__':
                     MessageHandler(Filters.regex('^(Сдаться)$'), handle_refuse_decision),
                     MessageHandler(Filters.text, handle_solution_attempt)
                 ],
-                FINISHED: [
-                    MessageHandler(Filters.regex('^(Выйти)$'), handle_cancel_decision)
-                ]
             },
             fallbacks=[CommandHandler('cancel', handle_cancel_decision)]
         )
