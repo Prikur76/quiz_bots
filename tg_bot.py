@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 import os
@@ -42,12 +43,12 @@ def start(update: Update, context: CallbackContext) -> None:
 
 
 @send_action(ChatAction.TYPING)
-def handle_new_question_request(update: Update, context: CallbackContext):
+def handle_new_question_request(update: Update, context: CallbackContext, db_connection):
     """Обработка нового вопроса"""
     user = update.effective_user
     question_number = random.choice(db_connection.hkeys('quiz'))
     question = json.loads(db_connection.hget('quiz', question_number))
-    db_connection.hset('users', f'tg_user_{user.id}',
+    db_connection.hset('users', f'tg_user_{user_id}',
                        json.dumps({'last_question': question_number}))
     keyboard = [['Новый вопрос', 'Сдаться']]
     keyboard_markup = ReplyKeyboardMarkup(keyboard,
@@ -58,7 +59,7 @@ def handle_new_question_request(update: Update, context: CallbackContext):
 
 
 @send_action(ChatAction.TYPING)
-def handle_solution_attempt(update: Update, context: CallbackContext):
+def handle_solution_attempt(update: Update, context: CallbackContext, db_connection):
     """Проверяет правильность ответа"""
     user_id = update.message.from_user.id
     user_message = update.message.text.strip().lower()
@@ -78,7 +79,7 @@ def handle_solution_attempt(update: Update, context: CallbackContext):
     return ATTEMPTING
 
 
-def handle_refuse_decision(update: Update, context: CallbackContext):
+def handle_refuse_decision(update: Update, context: CallbackContext, db_connection):
     """Отменяет вопрос"""
     user_id = update.message.from_user.id
     quiz_answer = fetch_answer_from_db(f'tg_user_{user_id}', db_connection)
@@ -139,8 +140,19 @@ if __name__ == '__main__':
     db_connection = redis.Redis(connection_pool=pool)
 
     try:
+        handle_new_question_request = functools.partial(
+            handle_new_question_request,
+             db_connection=db_connection)
+        handle_solution_attempt = functools.partial(
+            handle_solution_attempt,
+            db_connection=db_connection)
+        handle_refuse_decision = functools.partial(
+            handle_refuse_decision,
+            db_connection=db_connection)
+
         updater = Updater(os.environ.get('DF_BOT_TOKEN'))
         dp = updater.dispatcher
+
         conversation_handler = ConversationHandler(
             entry_points=[CommandHandler('start', start)],
             states={
