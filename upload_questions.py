@@ -47,6 +47,7 @@ def main():
         pool = redis.ConnectionPool(
             host=os.environ.get('REDIS_HOST'),
             port=os.environ.get('REDIS_PORT'),
+            password=os.environ.get('REDIS_PASSWORD'),
             db=0)
         r = redis.Redis(connection_pool=pool,
                         decode_responses=True)
