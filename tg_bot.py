@@ -21,7 +21,7 @@ from tools import send_action, fetch_answer_from_db
 
 logger = logging.getLogger(__name__)
 
-CHOOSING, ATTEMPTING = range(2)
+CHOOSING, ATTEMPTING, FINISHED = range(3)
 
 
 def start(update: Update, context: CallbackContext) -> None:
@@ -47,9 +47,13 @@ def handle_new_question_request(update: Update, context: CallbackContext):
     user = update.effective_user
     question_number = random.choice(db_connection.hkeys('quiz'))
     question = json.loads(db_connection.hget('quiz', question_number))
-    db_connection.hset('users', f'user_{user.id}',
+    db_connection.hset('users', f'tg_user_{user.id}',
                        json.dumps({'last_question': question_number}))
-    update.message.reply_text(question['question'])
+    keyboard = [['Новый вопрос', 'Сдаться']]
+    keyboard_markup = ReplyKeyboardMarkup(keyboard,
+                                          resize_keyboard=True)
+    update.message.reply_text(question['question'],
+                              reply_markup=keyboard_markup)
     return ATTEMPTING
 
 
@@ -58,11 +62,12 @@ def handle_solution_attempt(update: Update, context: CallbackContext):
     """Проверяет правильность ответа"""
     user_id = update.message.from_user.id
     user_message = update.message.text.strip().lower()
-    quiz_answer = fetch_answer_from_db(user_id, db_connection)
+    quiz_answer = fetch_answer_from_db(f'tg_user_{user.id}', db_connection)
     if user_message == quiz_answer.lower():
         message_text = '''\
         Правильный ответ!
         Для продолжения нажмите "Новый вопрос"'''
+
         update.message.reply_text(dedent(message_text))
         return CHOOSING
 
@@ -76,14 +81,18 @@ def handle_solution_attempt(update: Update, context: CallbackContext):
 def handle_refuse_decision(update: Update, context: CallbackContext):
     """Отменяет вопрос"""
     user_id = update.message.from_user.id
-    quiz_answer = fetch_answer_from_db(user_id, db_connection)
+    quiz_answer = fetch_answer_from_db(f'tg_user_{user.id}', db_connection)
     message_text = """\
     Правильный ответ:
     %s.
     'Новый вопрос' - продолжить викторину,
-    /cancel  - отменить викторину
+    'Выйти' - покинуть викторину
     """ % quiz_answer
-    update.message.reply_text(dedent(message_text))
+    keyboard = [['Новый вопрос', 'Выйти']]
+    keyboard_markup = ReplyKeyboardMarkup(keyboard,
+                                          resize_keyboard=True)
+    update.message.reply_text(dedent(message_text),
+                              reply_markup=keyboard_markup)
     return CHOOSING
 
 
@@ -94,8 +103,7 @@ def handle_cancel_decision(update: Update, context: CallbackContext):
     До свидания, %s! 
     Введите /start для начала новой викторины.
     """ % user.first_name
-    update.message.reply_text(dedent(message_text),
-                              reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(dedent(message_text))
     return ConversationHandler.END
 
 
@@ -124,6 +132,7 @@ if __name__ == '__main__':
     pool = redis.ConnectionPool(
         host=os.environ.get('REDIS_HOST'),
         port=os.environ.get('REDIS_PORT'),
+        username=os.environ.get('REDIS_USERNAME'),
         password=os.environ.get('REDIS_PASSWORD'),
         db=0,
         decode_responses=True)
@@ -142,6 +151,9 @@ if __name__ == '__main__':
                 ATTEMPTING: [
                     MessageHandler(Filters.regex('^(Сдаться)$'), handle_refuse_decision),
                     MessageHandler(Filters.text, handle_solution_attempt)
+                ],
+                FINISHED: [
+                    MessageHandler(Filters.regex('^(Выйти)$'), handle_cancel_decision)
                 ]
             },
             fallbacks=[CommandHandler('cancel', handle_cancel_decision)]
