@@ -4,6 +4,7 @@ import logging
 import os
 
 import redis
+from redis.exceptions import ConnectionError, TimeoutError
 from dotenv import load_dotenv
 
 from tools import read_quiz_questions, clean_answer
@@ -51,13 +52,22 @@ def main():
             db=0)
         r = redis.Redis(connection_pool=pool,
                         decode_responses=True)
+        if r.ping():
+            logger.info('Подключение к БД установлено')
+
         for question_number, question in quiz_questions.items():
             r.hset('quiz', key=str(question_number),
                    value=json.dumps(question))
 
         logger.info('Вопросы успешно записаны в базу данных.')
+
+    except (TimeoutError, ConnectionError) as conn_err:
+        logger.debug('Redis connection error')
+        logger.exception(conn_err)
+
     except FileNotFoundError:
         logger.error('Файл с вопросами не найден.')
+
     except Exception as e:
         logger.error(f'Не удалось записать вопросы в базу данных: {e}',
                      exc_info=True)
