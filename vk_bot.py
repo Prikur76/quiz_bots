@@ -143,7 +143,6 @@ def main():
             pool = redis.ConnectionPool(
                 host=os.environ.get('REDIS_HOST'),
                 port=os.environ.get('REDIS_PORT'),
-                username=os.environ.get('REDIS_USERNAME'),
                 password=os.environ.get('REDIS_PASSWORD'),
                 decode_responses=True)
             db_connection = redis.Redis(connection_pool=pool)
@@ -172,7 +171,9 @@ def main():
                     continue
 
                 handle_solution_attempt(event, vk_api, db_connection)
-
+        except redis.exceptions.ConnectionError as conn_err:
+            logger.debug('Ошибка подключения к БД')
+            logger.exception(conn_err)
         except Exception as e:
             logger.debug('Возникла ошибка в vk-боте')
             logger.exception(e)

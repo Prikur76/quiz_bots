@@ -136,9 +136,9 @@ if __name__ == '__main__':
         pool = redis.ConnectionPool(
             host=os.environ.get('REDIS_HOST'),
             port=os.environ.get('REDIS_PORT'),
-            username=os.environ.get('REDIS_USERNAME'),
             password=os.environ.get('REDIS_PASSWORD'),
-            decode_responses=True)
+            decode_responses=True,
+            encoding='utf-8')
         db_connection = redis.Redis(connection_pool=pool)
 
         updater = Updater(os.environ.get('DF_BOT_TOKEN'))
@@ -162,7 +162,9 @@ if __name__ == '__main__':
 
         updater.start_polling()
         updater.idle()
-
+    except redis.exceptions.ConnectionError as conn_err:
+        logger.debug('Ошибка подключения к БД')
+        logger.exception(conn_err)
     except Exception as e:
         logger.debug('Возникла ошибка в tg-боте')
         logger.exception(e)
