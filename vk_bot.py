@@ -148,7 +148,7 @@ def main():
             redis_connection = redis.Redis(connection_pool=pool)
 
             if redis_connection.ping():
-                logger.debug('Подключение к БД установлено')
+                logger.info('Подключение к БД установлено')
 
             vk_session = vk.VkApi(token=os.environ.get('VK_COMMUNITY_TOKEN'))
             vk_api = vk_session.get_api()

@@ -152,7 +152,7 @@ if __name__ == '__main__':
         redis_connection = redis.Redis(connection_pool=pool)
 
         if redis_connection.ping():
-            logger.debug('Подключение к БД установлено')
+            logger.info('Подключение к БД установлено')
 
         handle_new_question = functools.partial(
             handle_new_question_request,
