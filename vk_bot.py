@@ -136,16 +136,17 @@ def main():
     logger.addHandler(streamhandler)
     logger.debug('VK бот запущен')
 
-    pool = redis.ConnectionPool(
-        host=os.environ.get('REDIS_HOST'),
-        port=os.environ.get('REDIS_PORT'),
-        username=os.environ.get('REDIS_USERNAME'),
-        password=os.environ.get('REDIS_PASSWORD'),
-        decode_responses=True)
-    db_connection = redis.Redis(connection_pool=pool)
+
 
     while True:
         try:
+            pool = redis.ConnectionPool(
+                host=os.environ.get('REDIS_HOST'),
+                port=os.environ.get('REDIS_PORT'),
+                username=os.environ.get('REDIS_USERNAME'),
+                password=os.environ.get('REDIS_PASSWORD'),
+                decode_responses=True)
+            db_connection = redis.Redis(connection_pool=pool)
             vk_session = vk.VkApi(token=os.environ.get('VK_COMMUNITY_TOKEN'))
             vk_api = vk_session.get_api()
             longpoll = VkLongPoll(vk_session)

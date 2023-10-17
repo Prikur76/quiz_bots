@@ -132,15 +132,15 @@ if __name__ == '__main__':
     logger.addHandler(streamhandler)
     logger.debug('TG бот запущен')
 
-    pool = redis.ConnectionPool(
-        host=os.environ.get('REDIS_HOST'),
-        port=os.environ.get('REDIS_PORT'),
-        username=os.environ.get('REDIS_USERNAME'),
-        password=os.environ.get('REDIS_PASSWORD'),
-        decode_responses=True)
-    db_connection = redis.Redis(connection_pool=pool)
-
     try:
+        pool = redis.ConnectionPool(
+            host=os.environ.get('REDIS_HOST'),
+            port=os.environ.get('REDIS_PORT'),
+            username=os.environ.get('REDIS_USERNAME'),
+            password=os.environ.get('REDIS_PASSWORD'),
+            decode_responses=True)
+        db_connection = redis.Redis(connection_pool=pool)
+
         updater = Updater(os.environ.get('DF_BOT_TOKEN'))
         dp = updater.dispatcher
 
