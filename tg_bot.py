@@ -45,7 +45,8 @@ def start(update: Update, context: CallbackContext) -> None:
 def handle_new_question_request(update: Update, context: CallbackContext):
     """Обработка нового вопроса"""
     user_id = update.message.from_user.id
-    question_number = random.choice(db_connection.hkeys('quiz'))
+    quiz_keys = db_connection.hkeys('quiz')
+    question_number = random.choice(quiz_keys)
     question = json.loads(db_connection.hget('quiz', question_number))
     db_connection.hset('users', f'tg_user_{user_id}',
                        json.dumps({'last_question': question_number}))

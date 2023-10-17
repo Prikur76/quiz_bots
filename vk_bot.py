@@ -45,7 +45,8 @@ def start(event, vk_api):
 def handle_new_question_request(event, vk_api, db_connection):
     """Обработка нового вопроса"""
     user_id = event.user_id
-    question_number = random.choice(db_connection.hkeys('quiz'))
+    quiz_keys = db_connection.hkeys('quiz')
+    question_number = random.choice(quiz_keys)
     question = json.loads(db_connection.hget('quiz', question_number))
     db_connection.hset('users', f'vk_user_{user_id}',
                        json.dumps({'last_question': question_number}))
