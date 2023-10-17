@@ -5,6 +5,7 @@ import random
 from textwrap import dedent
 
 import redis
+from redis.exceptions import ConnectionError, TimeoutError
 import vk_api as vk
 from dotenv import load_dotenv
 from telegram import Bot
@@ -136,16 +137,19 @@ def main():
     logger.addHandler(streamhandler)
     logger.debug('VK бот запущен')
 
-
-
     while True:
         try:
             pool = redis.ConnectionPool(
                 host=os.environ.get('REDIS_HOST'),
                 port=os.environ.get('REDIS_PORT'),
                 password=os.environ.get('REDIS_PASSWORD'),
-                decode_responses=True)
-            db_connection = redis.Redis(connection_pool=pool)
+                decode_responses=True,
+                socket_connect_timeout=2)
+            redis_connection = redis.Redis(connection_pool=pool)
+
+            if redis_connection.ping():
+                logger.debug('Подключение к БД установлено')
+
             vk_session = vk.VkApi(token=os.environ.get('VK_COMMUNITY_TOKEN'))
             vk_api = vk_session.get_api()
             longpoll = VkLongPoll(vk_session)
@@ -159,21 +163,23 @@ def main():
                     continue
 
                 if event.text.strip().lower() == 'новый вопрос':
-                    handle_new_question_request(event, vk_api, db_connection)
+                    handle_new_question_request(event, vk_api, redis_connection)
                     continue
 
                 if event.text.strip().lower() == 'сдаться':
-                    handle_refuse_decision(event, vk_api, db_connection)
+                    handle_refuse_decision(event, vk_api, redis_connection)
                     continue
 
                 if event.text.strip().lower() == 'выйти':
                     handle_cancel_decision(event, vk_api)
                     continue
 
-                handle_solution_attempt(event, vk_api, db_connection)
-        except redis.exceptions.ConnectionError as conn_err:
-            logger.debug('Ошибка подключения к БД')
+                handle_solution_attempt(event, vk_api, redis_connection)
+
+        except (TimeoutError, ConnectionError) as conn_err:
+            logger.debug('Redis connection error')
             logger.exception(conn_err)
+
         except Exception as e:
             logger.debug('Возникла ошибка в vk-боте')
             logger.exception(e)

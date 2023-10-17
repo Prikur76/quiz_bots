@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 import os
@@ -5,6 +6,7 @@ import random
 from textwrap import dedent
 
 import redis
+from redis.exceptions import ConnectionError, TimeoutError
 from dotenv import load_dotenv
 from telegram import ChatAction
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
@@ -42,7 +44,9 @@ def start(update: Update, context: CallbackContext) -> None:
 
 
 @send_action(ChatAction.TYPING)
-def handle_new_question_request(update: Update, context: CallbackContext):
+def handle_new_question_request(update: Update,
+                                context: CallbackContext,
+                                db_connection):
     """Обработка нового вопроса"""
     user_id = update.message.from_user.id
     quiz_keys = db_connection.hkeys('quiz')
@@ -59,11 +63,14 @@ def handle_new_question_request(update: Update, context: CallbackContext):
 
 
 @send_action(ChatAction.TYPING)
-def handle_solution_attempt(update: Update, context: CallbackContext):
+def handle_solution_attempt(update: Update,
+                            context: CallbackContext,
+                            db_connection):
     """Проверяет правильность ответа"""
     user_id = update.message.from_user.id
     user_message = update.message.text.strip().lower()
-    quiz_answer = fetch_answer_from_db(f'tg_user_{user_id}', db_connection)
+    quiz_answer = fetch_answer_from_db(f'tg_user_{user_id}',
+                                       db_connection)
     if user_message == quiz_answer.lower():
         message_text = '''\
         Правильный ответ!
@@ -80,10 +87,13 @@ def handle_solution_attempt(update: Update, context: CallbackContext):
     return ATTEMPTING
 
 
-def handle_refuse_decision(update: Update, context: CallbackContext):
+def handle_refuse_decision(update: Update,
+                           context: CallbackContext,
+                           db_connection):
     """Отменяет вопрос"""
     user_id = update.message.from_user.id
-    quiz_answer = fetch_answer_from_db(f'tg_user_{user_id}', db_connection)
+    quiz_answer = fetch_answer_from_db(f'tg_user_{user_id}',
+                                       db_connection)
     message_text = """\
     Правильный ответ:
     %s.
@@ -138,8 +148,21 @@ if __name__ == '__main__':
             port=os.environ.get('REDIS_PORT'),
             password=os.environ.get('REDIS_PASSWORD'),
             decode_responses=True,
-            encoding='utf-8')
-        db_connection = redis.Redis(connection_pool=pool)
+            socket_connect_timeout=2)
+        redis_connection = redis.Redis(connection_pool=pool)
+
+        if redis_connection.ping():
+            logger.debug('Подключение к БД установлено')
+
+        handle_new_question = functools.partial(
+            handle_new_question_request,
+            db_connection=redis_connection)
+        handle_refuse_decision = functools.partial(
+            handle_refuse_decision,
+            db_connection=redis_connection)
+        handle_solution_attempt = functools.partial(
+            handle_solution_attempt,
+            db_connection=redis_connection)
 
         updater = Updater(os.environ.get('DF_BOT_TOKEN'))
         dp = updater.dispatcher
@@ -149,10 +172,11 @@ if __name__ == '__main__':
             states={
                 CHOOSING: [
                     MessageHandler(Filters.regex('^(Новый вопрос)$'),
-                                   handle_new_question_request)
+                                   handle_new_question)
                 ],
                 ATTEMPTING: [
-                    MessageHandler(Filters.regex('^(Сдаться)$'), handle_refuse_decision),
+                    MessageHandler(Filters.regex('^(Сдаться)$'),
+                                   handle_refuse_decision),
                     MessageHandler(Filters.text, handle_solution_attempt)
                 ],
             },
@@ -162,9 +186,11 @@ if __name__ == '__main__':
 
         updater.start_polling()
         updater.idle()
-    except redis.exceptions.ConnectionError as conn_err:
-        logger.debug('Ошибка подключения к БД')
+
+    except (TimeoutError, ConnectionError) as conn_err:
+        logger.debug('Redis connection error')
         logger.exception(conn_err)
+
     except Exception as e:
         logger.debug('Возникла ошибка в tg-боте')
         logger.exception(e)
