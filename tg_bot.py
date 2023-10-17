@@ -1,4 +1,3 @@
-import functools
 import json
 import logging
 import os
@@ -43,9 +42,9 @@ def start(update: Update, context: CallbackContext) -> None:
 
 
 @send_action(ChatAction.TYPING)
-def handle_new_question_request(update: Update, context: CallbackContext, db_connection):
+def handle_new_question_request(update: Update, context: CallbackContext):
     """Обработка нового вопроса"""
-    user = update.effective_user
+    user_id = update.message.from_user.id
     question_number = random.choice(db_connection.hkeys('quiz'))
     question = json.loads(db_connection.hget('quiz', question_number))
     db_connection.hset('users', f'tg_user_{user_id}',
@@ -59,7 +58,7 @@ def handle_new_question_request(update: Update, context: CallbackContext, db_con
 
 
 @send_action(ChatAction.TYPING)
-def handle_solution_attempt(update: Update, context: CallbackContext, db_connection):
+def handle_solution_attempt(update: Update, context: CallbackContext):
     """Проверяет правильность ответа"""
     user_id = update.message.from_user.id
     user_message = update.message.text.strip().lower()
@@ -67,19 +66,20 @@ def handle_solution_attempt(update: Update, context: CallbackContext, db_connect
     if user_message == quiz_answer.lower():
         message_text = '''\
         Правильный ответ!
-        Для продолжения нажмите "Новый вопрос"'''
-
+        Для продолжения нажмите "Новый вопрос"
+        '''
         update.message.reply_text(dedent(message_text))
         return CHOOSING
 
     message_text = '''\
     Неверный ответ!
-    Попробуешь ещё раз?'''
+    Попробуешь ещё раз?
+    '''
     update.message.reply_text(dedent(message_text))
     return ATTEMPTING
 
 
-def handle_refuse_decision(update: Update, context: CallbackContext, db_connection):
+def handle_refuse_decision(update: Update, context: CallbackContext):
     """Отменяет вопрос"""
     user_id = update.message.from_user.id
     quiz_answer = fetch_answer_from_db(f'tg_user_{user_id}', db_connection)
@@ -89,7 +89,7 @@ def handle_refuse_decision(update: Update, context: CallbackContext, db_connecti
     'Новый вопрос' - продолжить викторину,
     '/cancel' - покинуть викторину
     """ % quiz_answer
-    keyboard = [['Новый вопрос', 'Выйти']]
+    keyboard = [['Новый вопрос']]
     keyboard_markup = ReplyKeyboardMarkup(keyboard,
                                           resize_keyboard=True)
     update.message.reply_text(dedent(message_text),
@@ -140,16 +140,6 @@ if __name__ == '__main__':
     db_connection = redis.Redis(connection_pool=pool)
 
     try:
-        handle_new_question_request = functools.partial(
-            handle_new_question_request,
-             db_connection=db_connection)
-        handle_solution_attempt = functools.partial(
-            handle_solution_attempt,
-            db_connection=db_connection)
-        handle_refuse_decision = functools.partial(
-            handle_refuse_decision,
-            db_connection=db_connection)
-
         updater = Updater(os.environ.get('DF_BOT_TOKEN'))
         dp = updater.dispatcher
 
