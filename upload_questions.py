@@ -63,7 +63,7 @@ def main():
 
     except (TimeoutError, ConnectionError) as conn_err:
         logger.debug('Redis connection error')
-        logger.exception(conn_err)
+        logger.exception(conn_err, exc_info=False)
 
     except FileNotFoundError:
         logger.error('Файл с вопросами не найден.')
