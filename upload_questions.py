@@ -2,14 +2,41 @@ import argparse
 import json
 import logging
 import os
+import re
 
 import redis
-from redis.exceptions import ConnectionError, TimeoutError
 from dotenv import load_dotenv
-
-from tools import read_quiz_questions, clean_answer
+from redis.exceptions import ConnectionError, TimeoutError
 
 logger = logging.getLogger(__name__)
+
+
+def read_quiz_questions(source_path, file_encoding='KOI8-R'):
+    """Возвращает словарь из вопросов и ответов."""
+    source_fullpath = os.path.abspath(source_path)
+    questions = []
+    for file in os.listdir(source_fullpath):
+        filepath = os.path.join(source_fullpath, file)
+        with open(filepath, 'r', encoding=file_encoding) as f:
+            text = f.read().split('\n\n')
+        content = [' '.join(row.strip().splitlines()[1:])
+                   for row in text
+                   if row.strip().startswith(('Вопрос', 'Ответ'))]
+        questions.extend(content)
+    return questions
+
+
+def clean_answer(answer):
+    """Удаляет лишние символы и содержимое в ответе"""
+    comments_pattern = r'[\(\[].*?[\)\]]'
+    last_dot_pattern = r'\.$'
+    quotation_marks_pattern = r'\"'
+    return re.sub(comments_pattern, '',
+                  re.sub(last_dot_pattern, '',
+                         re.sub(quotation_marks_pattern, '',
+                                answer)
+                         )
+                  ).strip()
 
 
 def main():
@@ -37,10 +64,11 @@ def main():
             enumerate(
                 [
                     {
-                        'question': questions[i],
-                        'answer': clean_answer(questions[i + 1])
+                        'question': questions[question_number],
+                        'answer': clean_answer(
+                            questions[question_number + 1])
                     }
-                    for i in range(0, len(questions), 2)
+                    for question_number in range(0, len(questions), 2)
                 ],
                 start=1
             )
