@@ -6,8 +6,8 @@ import random
 from textwrap import dedent
 
 import redis
-from redis.exceptions import ConnectionError, TimeoutError
 from dotenv import load_dotenv
+from redis.exceptions import ConnectionError, TimeoutError
 from telegram import ChatAction
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram import Update, Bot
@@ -18,8 +18,9 @@ from telegram.ext import Filters
 from telegram.ext import MessageHandler
 from telegram.ext import Updater
 
+from db_redis_api import fetch_answer_from_db
 from logshandler import TelegramLogsHandler
-from tools import send_action, fetch_answer_from_db
+from tg_bot_decorator import send_action
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +113,7 @@ def handle_cancel_decision(update: Update, context: CallbackContext):
     """Заканчивает диалог"""
     user = update.effective_user
     message_text = """\
-    До свидания, %s! 
+    До свидания, %s!
     Введите /start для начала новой викторины.
     """ % user.first_name
     update.message.reply_text(dedent(message_text),
