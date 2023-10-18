@@ -14,7 +14,7 @@ from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.utils import get_random_id
 
 from logshandler import TelegramLogsHandler
-from tools import fetch_answer_from_db
+from db_redis_api import fetch_answer_from_db
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def start(event, vk_api):
     start_message = """\
     Привет!
     Я бот для викторин.
-    Нажмите 'Новый вопрос' для начала викторины.       
+    Нажмите 'Новый вопрос' для начала викторины.
     """
     vk_api.messages.send(peer_id=user_id,
                          random_id=get_random_id(),
@@ -101,6 +101,7 @@ def handle_refuse_decision(event, vk_api, db_connection):
                          keyboard=keyboard.get_keyboard(),
                          message=dedent(message_text))
 
+
 def handle_cancel_decision(event, vk_api):
     """Заканчивает диалог"""
     user_id = event.user_id
@@ -163,11 +164,13 @@ def main():
                     continue
 
                 if event.text.strip().lower() == 'новый вопрос':
-                    handle_new_question_request(event, vk_api, redis_connection)
+                    handle_new_question_request(event, vk_api,
+                                                redis_connection)
                     continue
 
                 if event.text.strip().lower() == 'сдаться':
-                    handle_refuse_decision(event, vk_api, redis_connection)
+                    handle_refuse_decision(event, vk_api,
+                                           redis_connection)
                     continue
 
                 if event.text.strip().lower() == 'выйти':
